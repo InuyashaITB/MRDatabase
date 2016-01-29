@@ -82,6 +82,10 @@ public class MedicalRecord {
         setDiagnosis(diagnosis);
     }
 
+    public MedicalRecord() {
+
+    }
+
     public double getBMI() {
         return BMI;
     }

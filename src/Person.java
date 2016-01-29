@@ -1,3 +1,9 @@
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.Year;
+import java.util.Calendar;
+import java.util.Date;
+
 /**
  * Created by inuya on 1/26/2016.
  */
@@ -12,6 +18,7 @@ public class Person {
     protected int    zipCode;
     protected byte[] cipherSSN;
     protected String phoneNumber;
+    protected Date   dateOfBirth;
 
     protected static final String encryptionKey = "fedcba9876543210";
     private String SSNCipher;
@@ -35,12 +42,14 @@ public class Person {
      * @param phoneNumber
      * Patient's Phone Number (no dashes)
      */
-    public Person(String firstName, String lastName, String streetAddress, String cityAddress, int zipCode, int SSN, String phoneNumber) {
+    public Person(String firstName, String lastName, String streetAddress, String cityAddress, int zipCode, int SSN, String phoneNumber, Date dateOfBirth) {
         this.firstName = firstName;
         this.lastName = lastName;
         this.streetAddress = streetAddress;
         this.cityAddress = cityAddress;
         this.zipCode = zipCode;
+        this.dateOfBirth = dateOfBirth;
+
         setSSN(SSN);
 
         this.phoneNumber = phoneNumber;
@@ -228,7 +237,31 @@ public class Person {
         return encryptionKey;
     }
 
-    public void setSSNCipher(String SSNCipher) {
-        this.SSNCipher = SSNCipher;
+    public void setSSNCipher(String SSNCipher) { this.SSNCipher = SSNCipher; }
+
+    public int getAge(){
+        Calendar dateOfBirth = Calendar.getInstance();
+        dateOfBirth.setTime(this.dateOfBirth);
+        Calendar today = Calendar.getInstance();
+        int age = today.get(Calendar.YEAR) - dateOfBirth.get(Calendar.YEAR);
+        if (today.get(Calendar.MONTH) < dateOfBirth.get(Calendar.MONTH)) {
+            age--;
+        } else if (today.get(Calendar.MONTH) == dateOfBirth.get(Calendar.MONTH)
+                && today.get(Calendar.DAY_OF_MONTH) < dateOfBirth.get(Calendar.DAY_OF_MONTH)) {
+            age--;
+        }
+        return age;
+    }
+
+    public Date getDateOfBirth() {
+        return dateOfBirth;
+    }
+
+    public String getDateOfBirthFormatted() {
+        return (new SimpleDateFormat("MM/dd/yyy").format(dateOfBirth));
+    }
+
+    public void setDateOfBirth(Date dateOfBirth) {
+        this.dateOfBirth = dateOfBirth;
     }
 }

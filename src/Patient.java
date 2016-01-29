@@ -25,6 +25,7 @@ public class Patient extends Person{
         this.setPhoneNumber(phoneNumber);
         this.medicalRecordNumber = pullSQLMedicalRecordNumber(this);
         mRecords = new LinkedList<>();
+
     }
 
     public Patient() { mRecords = new LinkedList<>(); }

@@ -1,3 +1,5 @@
+import java.io.*;
+import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Scanner;
@@ -6,11 +8,19 @@ import java.sql.*;
 public class Main {
 
     private String myDriver = "com.mysql.jdbc.Driver";
-    private String hostName = "localhost";
-    private String databaseName = "cs380";
-    private String myUrl = "jdbc:mysql://" + hostName + "/" + databaseName;
-    private String user = "root";       // These will be modified later to allow for user input of the username and password
-    private String pass = "12lights";   // of the MySQL Database System
+
+    /**
+     * MySQL setting variables. These will be saved in the config.cfg file
+     */
+    private String hostName;
+    private String databaseName;
+    private String myUrl;
+
+    /**
+     * These will be asked upon entry to program every time
+     */
+    private String user;
+    private String pass;
 
     private Patient currentPatient; //Allow one patient to be active in memory at any given moment in time
 
@@ -51,6 +61,15 @@ public class Main {
         errorCodes.put(5,       "Patient loaded into Memory");
         errorCodes.put(5000,    "Patient could not be loaded");
         errorCodes.put(5001,    "Patient loading issue from Database");
+        errorCodes.put(10000,   "File Not Found Exception");
+        errorCodes.put(10001,   "IOException while trying to create config.cfg");
+        errorCodes.put(10002,   "config.cfg has been properly created");
+        errorCodes.put(10003,   "Tables already exist within Database");
+        errorCodes.put(10004,   "Error in createDatabase function");
+        errorCodes.put(10005,   "Created Tables Correctly");
+        errorCodes.put(10006,   "Database created");
+        errorCodes.put(10007,   "Database already exists, continuing Table Creation");
+        errorCodes.put(10008,   "Parse Exception in Date of Birth input, probably incorrect input format");
     }
 
     /**
@@ -76,11 +95,152 @@ public class Main {
      */
     public static void main(String[] args){
         createErrorCodes();
+        Scanner s = new Scanner(System.in);
         Main m = new Main();
+        if(isFirstRun()){
+            System.out.print("Enter the MySQL host name (i.e localhost): ");
+            m.setHostName(s.nextLine());
 
+            System.out.print("Enter the MySQL database name (i.e. Hospital Name): ");
+            m.setDatabaseName(s.nextLine().replace(" ", ""));
+
+            m.setMyUrl("jdbc:mysql://" + m.getHostName() + "/" + m.getDatabaseName());
+
+            System.out.print("Enter the MySQL User Name: ");
+            m.setUser(s.nextLine());
+
+            System.out.print("Enter the MySQL Password: ");
+            m.setPass(s.nextLine());
+
+            try {
+                File f = new File("config.cfg");
+                f.createNewFile();
+                PrintStream p = new PrintStream(f);
+                p.println("[MySQL Settings]");
+                p.println("hostName: " + m.getHostName());
+                p.println("databaseName: " + m.getDatabaseName());
+                p.println("myUrl: " + m.getMyUrl());
+                p.close();
+                m.results.add(10002);
+
+            } catch (FileNotFoundException E){
+                E.printStackTrace();
+                m.results.add(10000);
+            } catch (IOException E){
+                E.printStackTrace();
+                m.results.add(10001);
+            }
+
+
+            m.createDatabaseTables();
+            m.resultsReadOut();
+        }
+        else{
+            try {
+                LinkedList<String> configuration = new LinkedList<>();
+                Scanner fileR = new Scanner(new File("config.cfg"));
+                while(fileR.hasNextLine()){
+                    configuration.add(fileR.nextLine());
+                }
+
+                String hostName = configuration.get(1).split(" ")[1];
+                String databaseName = configuration.get(2).split(" ")[1];
+                String myUrl =configuration.get(3).split(" ")[1];
+                m.setHostName(hostName);
+                m.setDatabaseName(databaseName);
+                m.setMyUrl(myUrl);
+
+                System.out.print("Enter the MySQL User Name: ");
+                m.setUser(s.nextLine());
+
+                System.out.print("Enter the MySQL Password: ");
+                m.setPass(s.nextLine());
+
+                fileR.close();
+            }
+            catch (Exception E){
+                errorCodes.put(9999, stackTraceToString(E));
+                m.results.add(9999);
+            }
+        }
         m.mainMenu();
         m.resultsReadOut();
     }
+
+    /**
+     * Upon first run, we must make sure that the tables have been created within the database. If the tables (both)
+     * already exist, it simply means that this is the first time that this particular program has been ran, and should
+     * not override the current tables.
+     * Otherwise, if they do not exist already, create new entries.
+     */
+    private void createDatabaseTables() {
+        try {
+            //For first connection, we must make sure that the database already exists
+            Connection conn = DriverManager.getConnection(myUrl.replace(databaseName, ""), user, pass);
+            String query;
+            PreparedStatement preparedStmt;
+            try {
+                query = "CREATE DATABASE " + databaseName;
+                preparedStmt = conn.prepareStatement(query);
+
+
+            //If 1007 is the return code, then the DB already exists
+            if(preparedStmt.executeUpdate() == 1007) results.add(10007);
+            else results.add(10006);
+            } catch (Exception E){
+                errorCodes.put(9999, stackTraceToString(E));
+                results.add(9999);
+            }
+            conn.close();
+
+            conn = DriverManager.getConnection(myUrl, user, pass);
+            // create the java mysql update prepared statement
+            query = "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?";
+            preparedStmt = conn.prepareStatement(query);
+            preparedStmt.setString(1, databaseName);
+
+            ResultSet rs = preparedStmt.executeQuery();
+            if(rs.next())
+                if(!(rs.getString("TABLE_NAME").contains("patients"))) {
+                    query = "CREATE TABLE patients (idpatients INT(11), firstName TINYTEXT, lastName TINYTEXT, streetAddress LONGTEXT, cityAddress TINYTEXT, zipCode INT(11), SSN LONGTEXT, phoneNumber TINYTEXT, dateOfBirth TINYTEXT)";
+                    preparedStmt = conn.prepareStatement(query);
+                    preparedStmt.executeUpdate();
+                    results.add(10003);
+                }
+                if(!(rs.getString("TABLE_NAME").contains("records"))){
+                    query = "CREATE TABLE records (idpatients INT(11), BMI DOUBLE, upperBloodPressure INT(5), lowerBloodPressure INT(5), weight DOUBLE, temperature DOUBLE, age INT(3), heightInCentimeters DOUBLE, isSmoker BOOLEAN, primaryInsurance LONGTEXT, preferredPharmacy LONGTEXT, reasonForVisit BLOB, allergies BLOB, diagnosis BLOB)";
+                    preparedStmt = conn.prepareStatement(query);
+                    preparedStmt.executeUpdate();
+                }
+            else{
+                query = "CREATE TABLE patients (idpatients INT(11), firstName TINYTEXT, lastName TINYTEXT, streetAddress LONGTEXT, cityAddress TINYTEXT, zipCode INT(11), SSN LONGTEXT, phoneNumber TINYTEXT, dateOfBirth TINYTEXT)";
+                preparedStmt = conn.prepareStatement(query);
+                preparedStmt.executeUpdate();
+
+
+                query = "CREATE TABLE records (idpatients INT(11), BMI DOUBLE, upperBloodPressure INT(5), lowerBloodPressure INT(5), weight DOUBLE, temperature DOUBLE, age INT(3), heightInCentimeters DOUBLE, isSmoker BOOLEAN, primaryInsurance LONGTEXT, preferredPharmacy LONGTEXT, reasonForVisit BLOB, allergies BLOB, diagnosis BLOB)";
+                preparedStmt = conn.prepareStatement(query);
+                preparedStmt.executeUpdate();
+            }
+
+            conn.close();
+            results.add(10005);
+        } catch (Exception E){
+            errorCodes.put(9999, stackTraceToString(E));
+            results.add(9999);;
+            results.add(10004);
+        }
+
+    }
+
+    /**
+     *
+     * @return
+     * First run returns a boolean value, if the file config.cfg already exists, then it is not the first run for this
+     * program and shall be treated as such. Otherwise it is the first run, and we need to create the config.cfg file
+     * with the proper configurations
+     */
+    private static boolean isFirstRun() { return (!(new File("config.cfg").exists()));}
 
     /**
      *
@@ -179,7 +339,8 @@ public class Main {
             conn.close();
         }
         catch (Exception E){
-            E.printStackTrace();
+            errorCodes.put(9999, stackTraceToString(E));
+            results.add(9999);
             results.add(5001);
         }
 
@@ -247,6 +408,18 @@ public class Main {
         System.out.print("Phone Number: ");
         currentPatient.setPhoneNumber(s.next().replaceAll("-",""));
 
+        System.out.print("Date of Birth MM/DD/YYYY: ");
+        String input = s.nextLine();
+        String pattern = "MM/dd/yyyy";
+        SimpleDateFormat formatter = new SimpleDateFormat(pattern);
+        try{
+            java.util.Date dob = formatter.parse(input);
+            currentPatient.setDateOfBirth(dob);
+        }catch(Exception E){
+            E.printStackTrace();
+            results.add(10008);
+        }
+
         return addPatientToDB(currentPatient);
     }
     public boolean addPatientToDB(Patient p){
@@ -273,7 +446,7 @@ public class Main {
             }
 
             // create the java mysql update prepared statement
-            query = "INSERT INTO patients (firstName, lastName, streetAddress, cityAddress, zipCode, SSN, phoneNumber) "
+            query = "INSERT INTO patients (firstName, lastName, streetAddress, cityAddress, zipCode, SSN, phoneNumber, dateOfBirth) "
                     +  "VALUES ('"
                     + p.getFirstName() + "', '"
                     + p.getLastName()  + "', '"
@@ -281,7 +454,8 @@ public class Main {
                     + p.getCityAddress() + "', '"
                     + p.getZipCode() + "', '"
                     + cipherSSN + "', '"
-                    + p.getPhoneNumber() +"');";
+                    + p.getPhoneNumber() + "', '"
+                    + p.getDateOfBirthFormatted() + "');";
             preparedStmt = conn.prepareStatement(query);
 
             // execute the java prepared statement
@@ -459,5 +633,12 @@ public class Main {
 
     public void setPass(String pass) {
         this.pass = pass;
+    }
+    
+    public static String stackTraceToString(Exception E){
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        E.printStackTrace(pw);
+        return sw.toString();
     }
 }
