@@ -90,17 +90,19 @@ public class Person {
      * @param SSN
      * Sets the person's social security number, encrypted
      */
-    protected void setSSN(int SSN) {
+    protected boolean setSSN(int SSN) {
         try {
             String t = Integer.toString(SSN).replaceAll("-", "");
             if (t.length() != 9) {
                 System.out.println("Make sure that SSN is correct");
-                return;
+                return false;
             }
             cipherSSN = AESEncryption.encrypt((t + "\0\0\0\0\0\0\0"), encryptionKey);
+            return true;
         }
         catch(Exception E){
             E.printStackTrace();
+            return false;
         }
     }
 
@@ -109,14 +111,16 @@ public class Person {
      * @param SSN
      * Sets the person's social security number, encrypted
      */
-    protected void setSSN(byte[] SSN) {
+    protected boolean setSSN(byte[] SSN) {
         try {
             String t = new String(SSN).replaceAll("-", "");
 
             cipherSSN = AESEncryption.encrypt((t + "\0\0\0\0\0\0\0"), encryptionKey);
+            return true;
         }
         catch(Exception E){
             E.printStackTrace();
+            return false;
         }
     }
 
@@ -125,16 +129,18 @@ public class Person {
      * @param SSN
      * Sets the person's social security number, encrypted
      */
-    protected void setSSN(String SSN) {
+    protected boolean setSSN(String SSN) {
         if (SSN.replaceAll("-","").length() != 9){
             System.out.println("SSN is not of correct length");
-            return;
+            return false;
         }
         try {
             cipherSSN = AESEncryption.encrypt((SSN + "\0\0\0\0\0\0\0"), encryptionKey);
+            return true;
         }
         catch(Exception E){
             E.printStackTrace();
+            return false;
         }
     }
 

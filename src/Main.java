@@ -5,6 +5,8 @@ import java.util.LinkedList;
 import java.util.Scanner;
 import java.sql.*;
 
+import static java.lang.String.valueOf;
+
 public class Main {
 
     private String myDriver = "com.mysql.jdbc.Driver";
@@ -17,10 +19,11 @@ public class Main {
     private String myUrl;
 
     /**
-     * These will be asked upon entry to program every time
+     * These will be asked upon entry to program every time.
+     * Pass is encrypted.
      */
     private String user;
-    private String pass;
+    private byte[] pass;
 
     private Patient currentPatient; //Allow one patient to be active in memory at any given moment in time
 
@@ -31,6 +34,11 @@ public class Main {
      */
     private LinkedList<Integer> results;
 
+    /**
+     *
+     * The errorCodes HashMap is my simple way of creating an error / result catching lookup table so that we can know
+     * what and why something happens the way that it does.
+     */
     private static HashMap<Integer, String> errorCodes = new HashMap<>();
 
     public Main() {
@@ -44,6 +52,10 @@ public class Main {
         results = new LinkedList<>();
     }
 
+    /**
+     * the createErrorCodes() function fills our error code HashMap with the necessary data to perform lookups later on
+     * for errors / results that are useful.
+     */
     private static void createErrorCodes(){
         errorCodes.put(-1,      "No functions ran properly");
         errorCodes.put(0,       "User called for Exit");
@@ -110,7 +122,8 @@ public class Main {
             m.setUser(s.nextLine());
 
             System.out.print("Enter the MySQL Password: ");
-            m.setPass(s.nextLine());
+            try{m.setPass(AESEncryption.encrypt(padString(s.nextLine()), m.currentPatient.getEncryptionKey()));}
+            catch(Exception E){ m.results.add(9999); errorCodes.put(9999, stackTraceToString(E));}
 
             try {
                 File f = new File("config.cfg");
@@ -131,8 +144,6 @@ public class Main {
                 m.results.add(10001);
             }
 
-
-            m.createDatabaseTables();
             m.resultsReadOut();
         }
         else{
@@ -154,7 +165,8 @@ public class Main {
                 m.setUser(s.nextLine());
 
                 System.out.print("Enter the MySQL Password: ");
-                m.setPass(s.nextLine());
+                try{m.setPass(AESEncryption.encrypt(padString(s.nextLine()), valueOf(m.currentPatient.getEncryptionKey())));}
+                catch(Exception E){ m.results.add(9999); errorCodes.put(9999, stackTraceToString(E));}
 
                 fileR.close();
             }
@@ -163,8 +175,29 @@ public class Main {
                 m.results.add(9999);
             }
         }
+        m.createDatabaseTables();
         m.mainMenu();
         m.resultsReadOut();
+    }
+
+    /**
+     * For Encryption Purposes
+     * @param s
+     * String that needs to be padded, if not done so already
+     * @return
+     * Returns a String that is a multiple of 16 bytes. Primarily used for Encryption purposes.
+     */
+    private static String padString(String s) {
+        String ret;
+        if((s.length() % 16) != 0){
+            ret = s;
+            while(ret.length() % 16 != 0){
+                ret += "\0";
+            }
+            return ret;
+        }
+        else
+            return s;
     }
 
     /**
@@ -176,7 +209,7 @@ public class Main {
     private void createDatabaseTables() {
         try {
             //For first connection, we must make sure that the database already exists
-            Connection conn = DriverManager.getConnection(myUrl.replace(databaseName, ""), user, pass);
+            Connection conn = DriverManager.getConnection(myUrl.replace(databaseName, ""), user, getDecryptedPass());
             String query;
             PreparedStatement preparedStmt;
             try {
@@ -185,49 +218,54 @@ public class Main {
 
 
             //If 1007 is the return code, then the DB already exists
-            if(preparedStmt.executeUpdate() == 1007) results.add(10007);
-            else results.add(10006);
+                try {
+                    if (preparedStmt.executeUpdate() == 1007) results.add(10007);
+                    else results.add(10006);
+                } catch (SQLException T){//Don't do anything with this exception
+                     }
             } catch (Exception E){
                 errorCodes.put(9999, stackTraceToString(E));
                 results.add(9999);
             }
             conn.close();
 
-            conn = DriverManager.getConnection(myUrl, user, pass);
+            conn = DriverManager.getConnection(myUrl, user, getDecryptedPass());
             // create the java mysql update prepared statement
             query = "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?";
             preparedStmt = conn.prepareStatement(query);
             preparedStmt.setString(1, databaseName);
 
             ResultSet rs = preparedStmt.executeQuery();
-            if(rs.next())
-                if(!(rs.getString("TABLE_NAME").contains("patients"))) {
-                    query = "CREATE TABLE patients (idpatients INT(11), firstName TINYTEXT, lastName TINYTEXT, streetAddress LONGTEXT, cityAddress TINYTEXT, zipCode INT(11), SSN LONGTEXT, phoneNumber TINYTEXT, dateOfBirth TINYTEXT)";
-                    preparedStmt = conn.prepareStatement(query);
-                    preparedStmt.executeUpdate();
-                    results.add(10003);
-                }
-                if(!(rs.getString("TABLE_NAME").contains("records"))){
-                    query = "CREATE TABLE records (idpatients INT(11), BMI DOUBLE, upperBloodPressure INT(5), lowerBloodPressure INT(5), weight DOUBLE, temperature DOUBLE, age INT(3), heightInCentimeters DOUBLE, isSmoker BOOLEAN, primaryInsurance LONGTEXT, preferredPharmacy LONGTEXT, reasonForVisit BLOB, allergies BLOB, diagnosis BLOB)";
-                    preparedStmt = conn.prepareStatement(query);
-                    preparedStmt.executeUpdate();
-                }
-            else{
-                query = "CREATE TABLE patients (idpatients INT(11), firstName TINYTEXT, lastName TINYTEXT, streetAddress LONGTEXT, cityAddress TINYTEXT, zipCode INT(11), SSN LONGTEXT, phoneNumber TINYTEXT, dateOfBirth TINYTEXT)";
-                preparedStmt = conn.prepareStatement(query);
-                preparedStmt.executeUpdate();
-
-
-                query = "CREATE TABLE records (idpatients INT(11), BMI DOUBLE, upperBloodPressure INT(5), lowerBloodPressure INT(5), weight DOUBLE, temperature DOUBLE, age INT(3), heightInCentimeters DOUBLE, isSmoker BOOLEAN, primaryInsurance LONGTEXT, preferredPharmacy LONGTEXT, reasonForVisit BLOB, allergies BLOB, diagnosis BLOB)";
-                preparedStmt = conn.prepareStatement(query);
-                preparedStmt.executeUpdate();
+            while(rs.next()) {
+                String res = rs.getString("TABLE_NAME");
+                try {
+                    if (!(res.contains("patients"))) {
+                        query = "CREATE TABLE patients (idpatients INT(11) NOT NULL AUTO_INCREMENT, firstName TINYTEXT, lastName TINYTEXT, streetAddress LONGTEXT, cityAddress TINYTEXT, zipCode INT(11), SSN LONGTEXT, phoneNumber TINYTEXT, dateOfBirth TINYTEXT, PRIMARY KEY (idpatients))";
+                        preparedStmt = conn.prepareStatement(query);
+                        preparedStmt.executeUpdate();
+                        results.add(10003);
+                    } else if (!(res.contains("records"))) {
+                        query = "CREATE TABLE records (idpatients INT(11) NOT NULL, BMI DOUBLE, upperBloodPressure INT(5), lowerBloodPressure INT(5), weight DOUBLE, temperature DOUBLE, age INT(3), heightInCentimeters DOUBLE, isSmoker BOOLEAN, primaryInsurance LONGTEXT, preferredPharmacy LONGTEXT, reasonForVisit BLOB, allergies BLOB, diagnosis BLOB, PRIMARY KEY (idpatients))";
+                        preparedStmt = conn.prepareStatement(query);
+                        preparedStmt.executeUpdate();
+                    }
+                } catch (Exception E){}
             }
+           //else {
+           //    query = "CREATE TABLE patients (idpatients INT(11) NOT NULL AUTO_INCREMENT, firstName TINYTEXT, lastName TINYTEXT, streetAddress LONGTEXT, cityAddress TINYTEXT, zipCode INT(11), SSN LONGTEXT, phoneNumber TINYTEXT, dateOfBirth TINYTEXT, PRIMARY KEY (idpatients))";
+           //    preparedStmt = conn.prepareStatement(query);
+           //    preparedStmt.executeUpdate();
 
+
+           //    query = "CREATE TABLE records (idpatients INT(11) NOT NULL, BMI DOUBLE, upperBloodPressure INT(5), lowerBloodPressure INT(5), weight DOUBLE, temperature DOUBLE, age INT(3), heightInCentimeters DOUBLE, isSmoker BOOLEAN, primaryInsurance LONGTEXT, preferredPharmacy LONGTEXT, reasonForVisit BLOB, allergies BLOB, diagnosis BLOB, PRIMARY KEY (idpatients))";
+           //    preparedStmt = conn.prepareStatement(query);
+           //    preparedStmt.executeUpdate();
+           //}
             conn.close();
             results.add(10005);
         } catch (Exception E){
             errorCodes.put(9999, stackTraceToString(E));
-            results.add(9999);;
+            results.add(9999);
             results.add(10004);
         }
 
@@ -283,6 +321,8 @@ public class Main {
                                 results.add(5);
                             else
                                 results.add(5000);
+                            break;
+                    case 6: try{System.out.println(AESEncryption.decrypt(pass, Patient.encryptionKey).replaceAll("\0", ""));}catch(Exception E){E.printStackTrace();}
                     default: break;
                 }
             }
@@ -301,7 +341,7 @@ public class Main {
         Scanner s = new Scanner(System.in);
         if (s.hasNextInt()){
             int MRN = s.nextInt();
-            loadPatient(MRN);
+            return loadPatient(MRN);
         }
         else System.out.println("Make sure that the Medical Record Number is correctly formatted");
         return false;
@@ -313,9 +353,9 @@ public class Main {
      * @param MRN
      * MRN is the Medical Record Number of the patient being loaded into memory.
      */
-    private void loadPatient(int MRN){
+    private boolean loadPatient(int MRN){
         try {
-            Connection conn = DriverManager.getConnection(myUrl, user, pass);
+            Connection conn = DriverManager.getConnection(myUrl, user, getDecryptedPass());
 
             // create the java mysql update prepared statement
             String query = "SELECT * FROM patients WHERE idpatients = ?";
@@ -337,18 +377,20 @@ public class Main {
             }
 
             conn.close();
+            return true;
         }
         catch (Exception E){
             errorCodes.put(9999, stackTraceToString(E));
             results.add(9999);
             results.add(5001);
+            return false;
         }
 
     }
 
     private boolean displayTable() {
         try{
-            Connection conn = DriverManager.getConnection(myUrl, user, pass);
+            Connection conn = DriverManager.getConnection(myUrl, user, getDecryptedPass());
 
             // create the java mysql update prepared statement
             String query = "SELECT * FROM patients";
@@ -400,24 +442,27 @@ public class Main {
         currentPatient.setCityAddress(s.nextLine());
 
         System.out.print("Zip Code: ");
-        currentPatient.setZipCode(s.nextInt());
+        currentPatient.setZipCode(Integer.parseInt(s.nextLine()));
 
         System.out.print("SSN: ");
-        currentPatient.setSSN(s.nextInt());
+        while(!currentPatient.setSSN(s.nextLine())){System.out.print("SSN: ");}
 
         System.out.print("Phone Number: ");
-        currentPatient.setPhoneNumber(s.next().replaceAll("-",""));
+        currentPatient.setPhoneNumber(s.nextLine().replaceAll("-",""));
 
+        while(true) {
         System.out.print("Date of Birth MM/DD/YYYY: ");
         String input = s.nextLine();
         String pattern = "MM/dd/yyyy";
         SimpleDateFormat formatter = new SimpleDateFormat(pattern);
-        try{
-            java.util.Date dob = formatter.parse(input);
-            currentPatient.setDateOfBirth(dob);
-        }catch(Exception E){
-            E.printStackTrace();
-            results.add(10008);
+            try {
+                java.util.Date dob = formatter.parse(input);
+                currentPatient.setDateOfBirth(dob);
+                break;
+            } catch (Exception E) {
+                E.printStackTrace();
+                results.add(10008);
+            }
         }
 
         return addPatientToDB(currentPatient);
@@ -429,7 +474,7 @@ public class Main {
         }
         try {
             String cipherSSN = new String(p.getCipherSSN());
-            Connection conn = DriverManager.getConnection(myUrl, user, pass);
+            Connection conn = DriverManager.getConnection(myUrl, user, getDecryptedPass());
 
             // initial check to make sure that this is not a duplicate entry.
             String query = "SELECT count(*) FROM patients WHERE SSN = ?";
@@ -501,7 +546,7 @@ public class Main {
             byte[] cipherSSN = AESEncryption.encrypt((SSNString + "\0\0\0\0\0\0\0"), Patient.encryptionKey);
             String cipherSSNString = new String(cipherSSN);
 
-            Connection conn = DriverManager.getConnection(myUrl, user, pass);
+            Connection conn = DriverManager.getConnection(myUrl, user, getDecryptedPass());
             String query = "SELECT idpatients FROM patients WHERE SSN = ?";
             PreparedStatement ps = conn.prepareStatement(query);
             ps.setString(1, cipherSSNString);
@@ -510,8 +555,7 @@ public class Main {
             if (rs.next()){
                 int MRN = rs.getInt(1);
                 System.out.println("MRN: " + MRN);
-                loadPatient(MRN);
-                return true;
+                return loadPatient(MRN);
             }
 
         }
@@ -525,13 +569,13 @@ public class Main {
     private boolean searchPatientPhone(String phoneNumber){
         phoneNumber = phoneNumber.replaceAll("-","");
         try {
-            Connection conn = DriverManager.getConnection(myUrl, user, pass);
+            Connection conn = DriverManager.getConnection(myUrl, user, getDecryptedPass());
             String query = "SELECT idpatients FROM patients WHERE phoneNumber = ?";
             PreparedStatement ps = conn.prepareStatement(query);
             ps.setString(1, phoneNumber);
 
             ResultSet rs = ps.executeQuery();
-            if (rs.next()){
+            while (rs.next()){
                 System.out.println("MRN: " + rs.getInt(1));
                 return true;
             }
@@ -544,46 +588,65 @@ public class Main {
 
 
     private boolean deletePatientMenu() {
-        Scanner s = new Scanner(System.in);
-        if (currentPatient.getMedicalRecordNumber() == 0) {
-            System.out.println("Enter the patient Medical Record Number to be Deleted: ");
-            int MRN = s.nextInt();
-            try {
-                Connection conn = DriverManager.getConnection(myUrl, user, pass);
-                String query = "SELECT count(*) FROM patients WHERE idpatients = ?";
-                PreparedStatement ps = conn.prepareStatement(query);
-                ps.setInt(1, MRN);
+        try {
+            Scanner s = new Scanner(System.in);
+            Connection conn = DriverManager.getConnection(myUrl, user, getDecryptedPass());
+            String query;
+            PreparedStatement ps;
+            if (currentPatient.getMedicalRecordNumber() == 0) {
+                System.out.println("Enter the patient Medical Record Number to be Deleted: ");
+                int MRN = s.nextInt();
+                try {
+                    query = "SELECT count(*) FROM patients WHERE idpatients = ?";
+                    ps = conn.prepareStatement(query);
+                    ps.setInt(1, MRN);
 
-                ResultSet rs = ps.executeQuery();
-                if(rs.next()){
-                    if(rs.getInt(1) > 0){
-                        System.out.print("Are you sure? (Y|N) ");
-                        if(s.next().equalsIgnoreCase("Y")){
-                            query = "DELETE from patients WHERE idpatients = ?";
-                            ps = conn.prepareStatement(query);
-                            ps.setInt(1, MRN);
+                    ResultSet rs = ps.executeQuery();
+                    if (rs.next()) {
+                        if (rs.getInt(1) > 0) {
+                            System.out.print("Are you sure? (Y|N) ");
+                            if (s.next().equalsIgnoreCase("Y")) {
+                                query = "DELETE FROM patients WHERE idpatients = ?";
+                                ps = conn.prepareStatement(query);
+                                ps.setInt(1, MRN);
 
-                            ps.executeUpdate();
+                                ps.executeUpdate();
 
-                            conn.close();
-                            return true;
-                        }
-                        else{
-                            System.out.println("Cancelled deletion sequence");
-                            results.add(3002);
-                            conn.close();
-                            return false;
+                                conn.close();
+                                return true;
+                            } else {
+                                System.out.println("Cancelled deletion sequence");
+                                results.add(3002);
+                                conn.close();
+                                return false;
+                            }
                         }
                     }
+
+                    conn.close();
+                } catch (Exception E) {
+                    E.printStackTrace();
+                    results.add(3001);
                 }
+            } else {
+                System.out.print("Are you sure? (Y|N) ");
+                if (s.next().equalsIgnoreCase("Y")) {
+                    query = "DELETE FROM patients WHERE idpatients = ?";
+                    ps = conn.prepareStatement(query);
+                    ps.setInt(1, currentPatient.getMedicalRecordNumber());
 
-                conn.close();
-            } catch (Exception E){
-                E.printStackTrace();
-                results.add(3001);
+                    ps.executeUpdate();
+
+                    conn.close();
+                    return true;
+                } else {
+                    System.out.println("Cancelled deletion sequence");
+                    results.add(3002);
+                    conn.close();
+                    return false;
+                }
             }
-        }
-
+        } catch (Exception E){results.add(1235); stackTraceToString(E);}
         return false;
     }
 
@@ -627,11 +690,18 @@ public class Main {
         this.user = user;
     }
 
-    public String getPass() {
+    private String getDecryptedPass(){
+        try{
+        String ret = AESEncryption.decrypt(pass, currentPatient.getEncryptionKey()).replaceAll("\0","");
+        return ret;
+        }
+        catch(Exception E){results.add(1234); errorCodes.put(1234, stackTraceToString(E)); return null;}
+    }
+    public byte[] getPass() {
         return pass;
     }
 
-    public void setPass(String pass) {
+    public void setPass(byte[] pass) {
         this.pass = pass;
     }
     

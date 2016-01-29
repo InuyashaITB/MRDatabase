@@ -38,7 +38,7 @@ public class Patient extends Person{
         //This needs to be filled in later
         try {
             Main SQLSettings = new Main();
-            Connection conn = DriverManager.getConnection(SQLSettings.getMyUrl(), SQLSettings.getUser(), SQLSettings.getPass());
+            Connection conn = DriverManager.getConnection(SQLSettings.getMyUrl(), SQLSettings.getUser(), AESEncryption.decrypt(SQLSettings.getPass(), Patient.encryptionKey));
 
             String cipherSSNString = new String(p.getCipherSSN());
 
