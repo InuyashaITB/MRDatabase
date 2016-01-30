@@ -573,7 +573,6 @@ public class Main {
             String query = "SELECT idpatients FROM patients WHERE phoneNumber = ?";
             PreparedStatement ps = conn.prepareStatement(query);
             ps.setString(1, phoneNumber);
-
             ResultSet rs = ps.executeQuery();
             while (rs.next()){
                 System.out.println("MRN: " + rs.getInt(1));

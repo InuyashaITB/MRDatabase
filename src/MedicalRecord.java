@@ -48,7 +48,7 @@ public class MedicalRecord {
      * String Array (or linked list) that states all of the patient's known allergies
      * @param diagnosis
      * String Array (or linked list) that states all of the concluding diagnosis of the visit
-     */
+     **/
     public MedicalRecord(double BMI, int upperBloodPressure, int lowerBloodPressure, double weight, double temperature, int age, double heightInCentimeters, boolean isSmoker, String primaryInsurance, String preferredPharmacy, LinkedList<String> reasonForVisit, LinkedList<String> allergies, LinkedList<String> diagnosis) {
         this.BMI                = BMI;
         this.upperBloodPressure = upperBloodPressure;

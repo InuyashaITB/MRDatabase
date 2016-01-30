@@ -3,6 +3,9 @@ import javax.crypto.spec.IvParameterSpec;
 
 import javax.crypto.Cipher;
 
+/**
+ * This class contains the encrypt and decrypt functions
+ */
 public class AESEncryption {
     static String IVector = "AAAAAAAAAAAAAAAA";
     

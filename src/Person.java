@@ -183,7 +183,7 @@ public class Person {
     /**
      *
      * @return
-     * Returns the person's Zip Code
+     *  Returns the person's Zip Code
      */
     public int getZipCode() {
         return zipCode;

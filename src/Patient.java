@@ -67,8 +67,8 @@ public class Patient extends Person{
     /**
      *
      * @param mRecords
-     * set the person's Medical Records with a Linked List, this function is only to be used if creating a new medical
-     * record
+     *  set the person's Medical Records with a Linked List, this function is only to be used if creating a new medical
+     *  record
      */
     private void setmRecords(LinkedList<MedicalRecord> mRecords) {
         this.mRecords = mRecords;
