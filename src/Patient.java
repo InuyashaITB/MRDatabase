@@ -95,6 +95,10 @@ public class Patient extends Person{
         mRecords.add(new MedicalRecord(BMI, upperBloodPressure, lowerBloodPressure, weight, temperature, age, heightInCentimeters, isSmoker, primaryInsurance, preferredPharmacy, reasonForVisit, allergies, diagnosis));
     }
 
+    public void newMedicalRecord(MedicalRecord record){
+        mRecords.add(record);
+    }
+
     /**
      * @return
      * returns the person's unique record number
@@ -113,5 +117,13 @@ public class Patient extends Person{
         this.medicalRecordNumber = medicalRecordNumber;
     }
 
+    public String mySQLInsert(MedicalRecord Record){
+        String query = "";
+        return query;
+    }
 
+    public String listFields() {
+        Patient.class.getDeclaredFields()[0].getName();
+        return "(idpatients, BMI, upperBloodPressure, lowerBloodPressure, weight, temperature, age, heightInCentimeters, isSmoker, primaryInsurance, preferredPharmacy, reasonForVisit, allergies, diagnosis)";
+    }
 }

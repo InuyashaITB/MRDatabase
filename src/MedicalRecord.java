@@ -18,6 +18,8 @@ public class MedicalRecord {
     LinkedList <String>allergies;
     LinkedList <String>diagnosis;
 
+    String splitter = ":BREAK:";
+
     /**
      * Standard constructor. This constructor takes ALL of the possible entries for a Medical Record, whether they are
      * empty or not does not matter, just make sure that each entry is filled by something. If it is an empty number
@@ -213,5 +215,32 @@ public class MedicalRecord {
         ret.add(this.allergies.toString());
         ret.add(this.diagnosis.toString());
         return ret.toString();
+    }
+
+    public byte[] getReasonForVisitBytes() {
+        String s = "";
+        for(String T: reasonForVisit){
+            s += s + T + splitter;
+        }
+
+        return s.getBytes();
+    }
+
+    public byte[] getDiagnosisBytes() {
+        String s = "";
+        for(String T: diagnosis){
+            s+= s + T + splitter;
+        }
+
+        return s.getBytes();
+    }
+
+    public byte[] getAllergiesBytes() {
+        String s = "";
+        for(String T: allergies){
+            s += s + T + splitter;
+        }
+
+        return s.getBytes();
     }
 }

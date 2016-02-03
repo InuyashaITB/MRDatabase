@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component name="dataSourceStorage">
+  <data-source name="MySQL - cs380@localhost" uuid="79c22bd5-1273-43cd-bb63-e66a52e740a4">
+    <database-info product="MySQL" version="5.7.10-log" jdbc-version="4.0" driver-name="MySQL Connector Java" driver-version="mysql-connector-java-5.1.35 ( Revision: 5fb9c5849535c13917c2cf9baaece6ef9693ef27 )">
+      <extra-name-characters>#@</extra-name-characters>
+      <identifier-quote-string>`</identifier-quote-string>
+    </database-info>
+    <case-sensitivity plain-identifiers="lower" quoted-identifiers="lower"/>
+    <schema name="" catalog="cs380"/>
+    <table name="patients" schema="" catalog="cs380" type="TABLE">
+      <column name="idpatients" sqlType="BIGINT" precision="19" scale="0" nullable="false" jdbcType="-5" remarks="cGF0aWVudCBtZWRpY2FsIHJlY29yZCBudW1iZXI="/>
+      <column name="firstName" sqlType="TINYTEXT" precision="255" scale="0" nullable="true" jdbcType="12"/>
+      <column name="lastName" sqlType="TINYTEXT" precision="255" scale="0" nullable="true" jdbcType="12"/>
+      <column name="streetAddress" sqlType="LONGTEXT" precision="2147483647" scale="0" nullable="true" jdbcType="-1"/>
+      <column name="cityAddress" sqlType="TINYTEXT" precision="255" scale="0" nullable="true" jdbcType="12"/>
+      <column name="zipCode" sqlType="INT" precision="10" scale="0" nullable="true" jdbcType="4"/>
+      <column name="SSN" sqlType="BLOB" precision="65535" scale="0" nullable="true" jdbcType="-4"/>
+      <primary-key name="PRIMARY" columns="idpatients"/>
+      <index name="idpatients_UNIQUE" unique="true" columns="idpatients"/>
+    </table>
+  </data-source>
+</component>

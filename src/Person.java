@@ -1,5 +1,6 @@
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
+import java.time.Period;
 import java.time.Year;
 import java.util.Calendar;
 import java.util.Date;
@@ -246,17 +247,11 @@ public class Person {
     public void setSSNCipher(String SSNCipher) { this.SSNCipher = SSNCipher; }
 
     public int getAge(){
-        Calendar dateOfBirth = Calendar.getInstance();
-        dateOfBirth.setTime(this.dateOfBirth);
-        Calendar today = Calendar.getInstance();
-        int age = today.get(Calendar.YEAR) - dateOfBirth.get(Calendar.YEAR);
-        if (today.get(Calendar.MONTH) < dateOfBirth.get(Calendar.MONTH)) {
-            age--;
-        } else if (today.get(Calendar.MONTH) == dateOfBirth.get(Calendar.MONTH)
-                && today.get(Calendar.DAY_OF_MONTH) < dateOfBirth.get(Calendar.DAY_OF_MONTH)) {
-            age--;
-        }
-        return age;
+        LocalDate today = LocalDate.now();
+        LocalDate birthday = LocalDate.of(this.dateOfBirth.getYear(), this.dateOfBirth.getMonth(), this.dateOfBirth.getDay());
+        Period p = Period.between(birthday, today);
+
+        return p.getYears();
     }
 
     public Date getDateOfBirth() {

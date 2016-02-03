@@ -1,4 +1,5 @@
 import java.io.*;
+import java.lang.reflect.Field;
 import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -53,6 +54,94 @@ public class Main {
     }
 
     /**
+     *
+     * The mainMenu() function is what controls how the user interacts with the System. Currently used as a command line
+     * interface, however this may change in the future to a GUI and be commented out based on GUI specifications.
+     *
+     */
+    private void mainMenu(){
+        do {
+            resultsReadOut();
+            if(currentPatient != null)
+                System.out.println("Would you like to: \n" +
+                        " 0.) Exit \n" +
+                        " 1.) Add New Patient \n" +
+                        " 2.) Search for Patient MRN \n" +
+                        " 3.) Delete Patient \n" +
+                        " 4.) Display Table \n" +
+                        " 5.) Load Patient \n" +
+                        " 6.) New Visit Record");
+            else
+                System.out.println("Would you like to: \n" +
+                        " 0.) Exit \n" +
+                        " 1.) Add New Patient \n" +
+                        " 2.) Search for Patient MRN \n" +
+                        " 3.) Delete Patient \n" +
+                        " 4.) Display Table \n" +
+                        " 5.) Load Patient \n" +
+                        " 6.) New Visit Record \n" +
+                        " 7.) View Medical History");
+            Scanner s = new Scanner(System.in);
+            if (s.hasNextInt()) {
+                switch (s.nextInt()){
+                    case 0: results.add(0);
+                        return;
+                    case 1: if(addNewPatientMenu())
+                        results.add(1);
+                    else
+                        results.add(1000);
+                        break;
+
+                    case 2: if(searchPatientMenu())
+                        results.add(2);
+                    else
+                        results.add(2000);
+                        break;
+
+                    case 3: if(deletePatientMenu())
+                        results.add(3);
+                    else
+                        results.add(3000);
+                        break;
+                    case 4: if(displayTable())
+                        results.add(4);
+                    else
+                        results.add(4000);
+                        break;
+                    case 5: if(selectPatientMenu())
+                        results.add(5);
+                    else
+                        results.add(5000);
+                        break;
+                    case 6: if(newVisitMenu())
+                        results.add(6);
+                    else
+                        results.add(6000);
+                    case 7: if(displayMedicalHistory())
+                        results.add(7);
+                        break;
+                    case 10:
+                        Field[] fields = Patient.class.getDeclaredFields();
+                        System.out.println("Patient Fields: ");
+                        for(Field f: fields)
+                            System.out.print(" " + f.getName());
+                        System.out.println();
+
+                        System.out.println("Person Fields: ");
+                        fields = Person.class.getDeclaredFields();
+                        for(Field f: fields)
+                            System.out.print(" " + f.getName());
+                        System.out.println();
+                        break;
+                    default: break;
+                }
+            }
+            else System.out.println("Please enter a valid number");
+        }while(true);
+
+    }
+
+    /**
      * the createErrorCodes() function fills our error code HashMap with the necessary data to perform lookups later on
      * for errors / results that are useful.
      */
@@ -73,6 +162,10 @@ public class Main {
         errorCodes.put(5,       "Patient loaded into Memory");
         errorCodes.put(5000,    "Patient could not be loaded");
         errorCodes.put(5001,    "Patient loading issue from Database");
+        errorCodes.put(6,       "New Visit Successful");
+        errorCodes.put(6000,    "Could not create new Visit");
+        errorCodes.put(7,       "Patient Medical Records Accessed");
+        errorCodes.put(7000,    "Patient Medical Records could not be Accessed");
         errorCodes.put(10000,   "File Not Found Exception");
         errorCodes.put(10001,   "IOException while trying to create config.cfg");
         errorCodes.put(10002,   "config.cfg has been properly created");
@@ -234,16 +327,16 @@ public class Main {
             query = "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?";
             preparedStmt = conn.prepareStatement(query);
             preparedStmt.setString(1, databaseName);
-
+            int countRs = 0;
             ResultSet rs = preparedStmt.executeQuery();
             while(rs.next()) {
+                countRs++;
                 String res = rs.getString("TABLE_NAME");
                 try {
                     if (!(res.contains("patients"))) {
                         query = "CREATE TABLE patients (idpatients INT(11) NOT NULL AUTO_INCREMENT, firstName TINYTEXT, lastName TINYTEXT, streetAddress LONGTEXT, cityAddress TINYTEXT, zipCode INT(11), SSN LONGTEXT, phoneNumber TINYTEXT, dateOfBirth TINYTEXT, PRIMARY KEY (idpatients))";
                         preparedStmt = conn.prepareStatement(query);
                         preparedStmt.executeUpdate();
-                        results.add(10003);
                     } else if (!(res.contains("records"))) {
                         query = "CREATE TABLE records (idpatients INT(11) NOT NULL, BMI DOUBLE, upperBloodPressure INT(5), lowerBloodPressure INT(5), weight DOUBLE, temperature DOUBLE, age INT(3), heightInCentimeters DOUBLE, isSmoker BOOLEAN, primaryInsurance LONGTEXT, preferredPharmacy LONGTEXT, reasonForVisit BLOB, allergies BLOB, diagnosis BLOB, PRIMARY KEY (idpatients))";
                         preparedStmt = conn.prepareStatement(query);
@@ -251,16 +344,17 @@ public class Main {
                     }
                 } catch (Exception E){}
             }
-           //else {
-           //    query = "CREATE TABLE patients (idpatients INT(11) NOT NULL AUTO_INCREMENT, firstName TINYTEXT, lastName TINYTEXT, streetAddress LONGTEXT, cityAddress TINYTEXT, zipCode INT(11), SSN LONGTEXT, phoneNumber TINYTEXT, dateOfBirth TINYTEXT, PRIMARY KEY (idpatients))";
-           //    preparedStmt = conn.prepareStatement(query);
-           //    preparedStmt.executeUpdate();
+           //Verify Tables Here
+            if(countRs==0){
+                query = "CREATE TABLE patients (idpatients INT(11) NOT NULL AUTO_INCREMENT, firstName TINYTEXT, lastName TINYTEXT, streetAddress LONGTEXT, cityAddress TINYTEXT, zipCode INT(11), SSN LONGTEXT, phoneNumber TINYTEXT, dateOfBirth TINYTEXT, PRIMARY KEY (idpatients))";
+                preparedStmt = conn.prepareStatement(query);
+                preparedStmt.executeUpdate();
 
+                query = "CREATE TABLE records (idpatients INT(11) NOT NULL, BMI DOUBLE, upperBloodPressure INT(5), lowerBloodPressure INT(5), weight DOUBLE, temperature DOUBLE, age INT(3), heightInCentimeters DOUBLE, isSmoker BOOLEAN, primaryInsurance LONGTEXT, preferredPharmacy LONGTEXT, reasonForVisit BLOB, allergies BLOB, diagnosis BLOB, PRIMARY KEY (idpatients))";
+                preparedStmt = conn.prepareStatement(query);
+                preparedStmt.executeUpdate();
+            }
 
-           //    query = "CREATE TABLE records (idpatients INT(11) NOT NULL, BMI DOUBLE, upperBloodPressure INT(5), lowerBloodPressure INT(5), weight DOUBLE, temperature DOUBLE, age INT(3), heightInCentimeters DOUBLE, isSmoker BOOLEAN, primaryInsurance LONGTEXT, preferredPharmacy LONGTEXT, reasonForVisit BLOB, allergies BLOB, diagnosis BLOB, PRIMARY KEY (idpatients))";
-           //    preparedStmt = conn.prepareStatement(query);
-           //    preparedStmt.executeUpdate();
-           //}
             conn.close();
             results.add(10005);
         } catch (Exception E){
@@ -280,55 +374,161 @@ public class Main {
      */
     private static boolean isFirstRun() { return (!(new File("config.cfg").exists()));}
 
+    private boolean displayMedicalHistory() {
+        return false;
+    }
+
     /**
      *
-     * The mainMenu() function is what controls how the user interacts with the System. Currently used as a command line
-     * interface, however this may change in the future to a GUI and be commented out based on GUI specifications.
-     *
+     * @return
+     * New Visit Menu is the initial menu that decides whether or not the Patient is successfully loaded int memory
+     * and a new entry of their visit with all necessary information is provided.
      */
-    private void mainMenu(){
-        do {
-            resultsReadOut();
-            System.out.println("Would you like to: \n 0.) Exit \n 1.) Add New Patient \n 2.) Search for Patient MRN \n 3.) Delete Patient \n 4.) Display Table \n 5.) Load Patient");
-            Scanner s = new Scanner(System.in);
-            if (s.hasNextInt()) {
-                switch (s.nextInt()){
-                    case 0: results.add(0);
-                            return;
-                    case 1: if(addNewPatientMenu())
-                                results.add(1);
-                            else
-                                results.add(1000);
-                            break;
+    private boolean newVisitMenu() {
 
-                    case 2: if(searchPatientMenu())
-                                results.add(2);
-                            else
-                                results.add(2000);
-                            break;
-
-                    case 3: if(deletePatientMenu())
-                                results.add(3);
-                            else
-                                results.add(3000);
-                            break;
-                    case 4: if(displayTable())
-                                results.add(4);
-                            else
-                                results.add(4000);
-                            break;
-                    case 5: if(selectPatientMenu())
-                                results.add(5);
-                            else
-                                results.add(5000);
-                            break;
-                    case 6: try{System.out.println(AESEncryption.decrypt(pass, Patient.encryptionKey).replaceAll("\0", ""));}catch(Exception E){E.printStackTrace();}
-                    default: break;
+        Scanner s = new Scanner(System.in);
+        MedicalRecord r = null;
+        if (currentPatient.getFirstName() == null) //No patient has been loaded into memory
+        {
+            System.out.print("No patient loaded currently, Do you know the Medical Record Number? (Y|N) ");
+            if (s.nextLine().equalsIgnoreCase("Y")) {
+                System.out.print("Enter the Medical Record Number: ");
+                if (s.hasNextInt()) {
+                    if (loadPatient(s.nextInt())) ;
+                    return newVisitMenu();
+                } else {
+                    System.out.println("the Medical Record Number should be a Number!");
+                    return false;
+                }
+            } else {
+                if (searchPatientMenu())
+                    return newVisitMenu();
+                else
+                    return false;
+            }
+        } else { //There is a patient currently loaded into memory
+            System.out.println("Current Patient: " + currentPatient.getFirstName() + " " + currentPatient.getLastName()
+                    + "\n Is this who you would like a new record for? (Y|N) ");
+            if (s.nextLine().equalsIgnoreCase("Y")) {
+                r = createMedicalrecord();
+                if (r != null) {
+                    currentPatient.newMedicalRecord(r);
+                    return writeMedicalRecord(r);
+                } else
+                    return false;
+            } else {
+                System.out.print("Do you know the patient's Medical Record Number? (Y|N) ");
+                if (s.nextLine().equalsIgnoreCase("Y")) {
+                    System.out.print("Enter the Medical Record Number: ");
+                    int MRN = Integer.parseInt(s.nextLine());
+                    if (loadPatient(MRN))
+                        return newVisitMenu();
+                } else {
+                    if (searchPatientMenu()) ;
+                    return newVisitMenu();
                 }
             }
-            else System.out.println("Please enter a valid number");
-        }while(true);
 
+        }
+        return writeMedicalRecord(r);
+    }
+
+    private boolean writeMedicalRecord(MedicalRecord R) {
+        if(R != null) {
+            try {
+                Connection conn = DriverManager.getConnection(myUrl, user, getDecryptedPass());
+
+
+                // initial check to make sure that this is not a duplicate entry.
+                String query = "INSERT INTO records " + currentPatient.listFields() +
+                        "VALUES ('" + currentPatient.getMedicalRecordNumber() + "', '" + R.getBMI() +
+                        "', '" + R.getUpperBloodPressure() + "', '" + R.getLowerBloodPressure() + "', '" +
+                        R.getWeight() + "', '" + R.getTemperature() + "', '" +
+                        currentPatient.getAge() + "', '" +
+                        R.getHeightInCentimeters() + "', '" + (R.isSmoker() ? 1:0) + "', '" +
+                        R.getPrimaryInsurance() + "', '" + R.getPreferredPharmacy() + "', '" +
+                        new javax.sql.rowset.serial.SerialBlob(R.getReasonForVisitBytes()) + "', '" +
+                        new javax.sql.rowset.serial.SerialBlob(R.getAllergiesBytes()) + "', '" +
+                        new javax.sql.rowset.serial.SerialBlob(R.getDiagnosisBytes()) + "');";
+
+                PreparedStatement preparedStmt = conn.prepareStatement(query);
+                preparedStmt.executeUpdate();
+
+                conn.close();
+                return true;
+            } catch (Exception E) {
+                errorCodes.put(7010, stackTraceToString(E));
+                results.add(7010);
+                return false;
+            }
+        }
+        return false;
+    }
+
+
+    private MedicalRecord createMedicalrecord() {
+        try {
+            Scanner s = new Scanner(System.in);
+            System.out.print("Enter BMI: ");
+            double BMI = Double.parseDouble(s.nextLine());
+            System.out.print("Enter upper Blood Pressure: ");
+            int upperBloodPressure = Integer.parseInt(s.nextLine());
+            System.out.print("Enter lower Blood Pressure: ");
+            int lowerBloodPressure = Integer.parseInt(s.nextLine());
+            System.out.print("Enter Weight: ");
+            double weight = Double.parseDouble(s.nextLine());
+            System.out.print("Enter Temperature: ");
+            double temperature = Double.parseDouble(s.nextLine());
+
+            int age = currentPatient.getAge();
+
+            System.out.print("Enter Height (in centimeters): ");
+            double height = Double.parseDouble(s.nextLine());
+            System.out.print("Smoker? (Y|N): ");
+            boolean isSmoker;
+            String in = s.nextLine();
+            if (in.contains("true") || in.contains("Y") || in.contains("YES"))
+                isSmoker = true;
+            else
+                isSmoker = false;
+            System.out.print("Enter Primary Insurance: "); //Later on this will be added as an automatic feature
+            String insurance = s.nextLine();
+            System.out.print("Enter Preferred Pharmacy: "); //Another future automatic feature
+            String pharmacy = s.nextLine();
+            System.out.print("Enter the Reason For Visit: (Enter Q to finish) ");
+            LinkedList<String> rfv = new LinkedList<>();
+            do {
+                String input = s.nextLine();
+                if (!input.equalsIgnoreCase("Q"))
+                    rfv.add(input);
+                else
+                    break;
+            } while (true);
+            System.out.print("Enter the Patient's Allergies: (Enter Q to finish) ");
+            LinkedList<String> allergies = new LinkedList<>();
+            do {
+                String input = s.nextLine();
+                if (!input.equalsIgnoreCase("Q"))
+                    allergies.add(input);
+                else
+                    break;
+            } while (true);
+            System.out.print("Enter the Diagnosis: (Enter Q to finish) ");
+            LinkedList<String> diagnosis = new LinkedList<>();
+            do {
+                String input = s.nextLine();
+                if (!input.equalsIgnoreCase("Q"))
+                    diagnosis.add(input);
+                else
+                    break;
+            } while (true);
+            return (new MedicalRecord(BMI, upperBloodPressure, lowerBloodPressure, weight, temperature, age, height, isSmoker,
+                    insurance, pharmacy, rfv, allergies, diagnosis));
+        }catch (Exception E){
+            errorCodes.put(8008, stackTraceToString(E));
+            results.add(8008);
+            return null;
+        }
     }
 
     /**
@@ -373,6 +573,8 @@ public class Main {
                 currentPatient.setZipCode(rs.getInt("zipCode"));
                 currentPatient.setSSNCipher(rs.getString("SSN"));
                 currentPatient.setPhoneNumber(rs.getString("phoneNumber"));
+                String[] DOB = rs.getString("dateOfBirth").split("/");
+                currentPatient.setDateOfBirth(new Date(Integer.parseInt(DOB[0]), Integer.parseInt(DOB[1]), Integer.parseInt(DOB[2])));
                 System.out.println(currentPatient.getFirstName() + " " + currentPatient.getLastName() + " Loaded");
             }
 
